@@ -312,7 +312,7 @@ def update_texts():
 
 
 if sys.argv[1] == "20101":
-    schedule.every(4).seconds.do(update_texts)
+    schedule.every(5).seconds.do(update_texts)
     schedule.every().hour.do(check_subs)
 
 
@@ -490,7 +490,7 @@ def update_game_text(users, game_id):
         text += '🔓  بازی توسط *' + users_coll.find_one({"tel_id": game["winner_id"]})[
             "first_name"] + '* با *' + str(len(
             moves_coll.find_one({"game_id": game["_id"], "user_id": game["winner_id"]})[
-                "moves"])) + color.END + '* حرکت رمزگشایی  شد 💪🕺💃\n\n'
+                "moves"]))  + '* حرکت رمزگشایی  شد 💪🕺💃\n\n'
 
     text += '🤖@RamzJoBot'
 
