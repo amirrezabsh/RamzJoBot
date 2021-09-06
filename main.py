@@ -36,8 +36,7 @@ sub_prices = {
     "100": 33000
 }
 
-API_KEY = "1927742243:AAGPgJKTiAjhWE2pDKwCeD1YjOYle8HCJ8s"
-# API_KEY = "1847265571:AAE6LIv4DAIlfOnBqvD3nUXtvR8YhnFEOpI"
+API_KEY = "YOUR API KEY"
 bot = telebot.TeleBot(API_KEY)
 client = pymongo.MongoClient(host="localhost", port=27017)
 db = client["pass_finder"]
@@ -1088,130 +1087,7 @@ def callback_query_handler(call):
 
 _thread.start_new_thread(schedule_function, ())
 
-# while True:
-#     bot.polling()
-
-cherrypy.config.update({"server.socket_port": 20000})
+while True:
+    bot.polling()
 
 
-# cherrypy.quickstart(WebhookServer(), "127.0.0.1", {'/api/v1.1/telegram-web-hook': {}})
-
-
-class verifyServer(object):
-    @cherrypy.expose
-    def index(self, c=None, r=None):
-        query_string = parse_query_string(cherrypy.request.query_string)
-        # print(query_string)
-        client_ref_id = c
-
-        ref_id = r
-        pay = pays_coll.find_one({"_id": ObjectId(client_ref_id)})
-        user_id = pay["user_id"]
-        if pay["type"] == 'coin':
-            coins = pay["coins"]
-            price = prices[str(coins)]
-        else:
-            days = pay["days"]
-            price = sub_prices[str(days)]
-        count = pays_coll.find({"paying_id": ObjectId(client_ref_id), "status": "payed"}).count()
-        if count != 0:
-            return
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer 8a65d585ce24ea37cc87359866f186fcb3ec3782e6b18ac59317188bb5725ab7"
-        }
-        params = {
-            "refId": str(ref_id),
-            "amount": str(price)
-        }
-        # print(price)
-        r = requests.post(url="https://api.payping.ir/v1/pay/verify", json=params, headers=headers).text
-        if r == "":
-            if pay["type"] == 'coin':
-                pays_coll.insert_one(
-                    {"user_id": user_id, "status": "payed", "type": "coin", "paying_id": client_ref_id, "coins": coins,
-                     "date": datetime.today().replace(microsecond=0)})
-                users_coll.update_one({"tel_id": str(user_id)},
-                                      {"$inc": {"coins": coins}})
-                bot.send_message(text='خرید با موفقیت انجام شد و مقدار ' + str(coins) + 'به سکه هایتان اضافه شد✅',
-                                 chat_id=user_id)
-            else:
-                user = users_coll.find_one({"tel_id": str(user_id)})
-                pays_coll.insert_one(
-                    {"user_id": user_id, "status": "payed", "type": "golden sub", "paying_id": client_ref_id,
-                     "days": days,
-                     "date": datetime.today().replace(microsecond=0)})
-                if not user["golden_sub"]:
-                    users_coll.update_one({"tel_id": str(user_id)},
-                                          {"$set": {"golden_sub": True,
-                                                    "golden_days": days,
-                                                    "golden_start_date": datetime.today().replace(microsecond=0)
-                                                    }
-                                           })
-                else:
-                    users_coll.update_one({"tel_id": str(user_id)},
-                                          {"$inc": {"golden_days": days}})
-                bot.send_message(text=str(days) + ' روز به اشتراک طلاییتان اضافه شد', chat_id=int(user_id))
-        else:
-            if pay["type"] == 'coin':
-                pays_coll.insert_one(
-                    {"user_id": user_id, "status": "failed", "type": "coin", "paying_id": client_ref_id, "coins": coins,
-                     "date": datetime.today().replace(microsecond=0)})
-            else:
-                pays_coll.insert_one(
-                    {"user_id": user_id, "status": "failed", "type": "golden sub", "paying_id": client_ref_id,
-                     "days": days,
-                     "date": datetime.today().replace(microsecond=0)})
-            bot.send_message(text=str(r) + 'خطایی در پرداخت ایجاد شد', chat_id=user_id)
-            # print("rrrrrrrrrrrrrrrr")
-            # print(r)
-
-        return ''
-
-
-class WebhookServer(object):
-    @cherrypy.expose
-    def index(self):
-        if 'content-length' in cherrypy.request.headers and \
-                'content-type' in cherrypy.request.headers and \
-                cherrypy.request.headers['content-type'] == 'application/json':
-            length = int(cherrypy.request.headers['content-length'])
-            json_string = cherrypy.request.body.read(length).decode("utf-8")
-            update = telebot.types.Update.de_json(json_string)
-            bot.process_new_updates([update])
-            return ''
-        else:
-            raise cherrypy.HTTPError(403)
-
-
-cherrypy_cors.install()
-
-cherrypy.config.update({
-    "server.socket_port": int(sys.argv[1]),
-    'engine.autoreload.on': True,
-    # 'log.screen': True,
-    'server.socket_host': '127.0.0.1'})
-# cherrypy.engine.start()
-# cherrypy.engine.block()
-# cherrypy_cors.install()
-config = {
-    '/': {
-        'cors.expose.on': True,
-        'tools.sessions.on': True,
-        'tools.response_headers.on': True,
-        'tools.response_headers.headers': [('Content-Type', 'application/json')],
-    },
-}
-
-config2 = {
-    '/': {
-        'cors.expose.on': True,
-        'tools.sessions.on': True,
-        'tools.response_headers.on': True,
-        'tools.response_headers.headers': [],
-    },
-}
-
-cherrypy.tree.mount(WebhookServer(), '/api32423fgh3534534345345534', config=config)
-# cherrypy.quickstart(WebhookServer(), "/api32423fgh3534534345345534",config=config)
-cherrypy.quickstart(verifyServer(), "/api-verify", config=config2)
