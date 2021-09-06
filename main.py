@@ -256,6 +256,11 @@ def check_subs():
                                                                "$unset": {"golden_start_date": "", "golden_days": ""}
                                                                })
 
+    games_coll.update_many(
+        {"is_finished": False, "date": {"$lte": datetime.today().replace(microsecond=0) - timedelta(hours=1)},
+         "mode": "multi"},
+        {"$set": {"is_finished": True}})
+
 
 def update_texts():
     games = games_coll.find({"is_finished": False, "mode": "multi", "is_started": True})
@@ -288,7 +293,7 @@ def update_texts():
                                           reply_markup=create_keyboards(game["keyboards"], str(game["_id"])))
                 except Exception as e:
                     print("line", 249, e)
-    games = games_coll.find({"is_edited": True, "is_finished": False})
+    games = games_coll.find({"is_edited": True, "is_finished": False, "mode": "multi"})
     for game in games:
         # print("game update text", game)
         game = games_coll.find_one({"_id": game["_id"]})
@@ -490,7 +495,7 @@ def update_game_text(users, game_id):
         text += '🔓  بازی توسط *' + users_coll.find_one({"tel_id": game["winner_id"]})[
             "first_name"] + '* با *' + str(len(
             moves_coll.find_one({"game_id": game["_id"], "user_id": game["winner_id"]})[
-                "moves"]))  + '* حرکت رمزگشایی  شد 💪🕺💃\n\n'
+                "moves"])) + '* حرکت رمزگشایی  شد 💪🕺💃\n\n'
 
     text += '🤖@RamzJoBot'
 
@@ -1009,6 +1014,7 @@ def callback_query_handler(call):
             if moves[- 1]["input"] == game["password"]:
                 games_coll.update_one({"_id": ObjectId(game_id)},
                                       {"$set": {"is_finished": True, "winner_id": str(call.from_user.id)}})
+                game = games_coll.find_one({"_id": ObjectId(game_id)})
             moves[- 1]["input_arr"].append(icon)
             text = ''
             state = ''
@@ -1049,9 +1055,17 @@ def callback_query_handler(call):
                 try:
                     # print(moves)
                     if len(moves) == 1:
+                        if game["mode"] == "single":
+                            bot.edit_message_text(update_game_text(game["users"], game_id),
+                                                  message_id=call.message.message_id, chat_id=call.from_user.id,
+                                                  reply_markup=create_keyboards(game["keyboards"], game_id))
                         games_coll.update_one({"_id": ObjectId(game_id)},
                                               {"$set": {"is_edited": True}})
                     elif moves[-2]["state"] != state:
+                        if game["mode"] == "single":
+                            bot.edit_message_text(update_game_text(game["users"], game_id),
+                                                  message_id=call.message.message_id, chat_id=call.from_user.id,
+                                                  reply_markup=create_keyboards(game["keyboards"], game_id))
                         games_coll.update_one({"_id": ObjectId(game_id)},
                                               {"$set": {"is_edited": True}})
                 except Exception as e:
@@ -1089,5 +1103,4 @@ _thread.start_new_thread(schedule_function, ())
 
 while True:
     bot.polling()
-
 
